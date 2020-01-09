@@ -33,7 +33,7 @@ public struct LoopSettings: Equatable {
 
     public var suspendThreshold: GlucoseThreshold? = nil
 
-    public let retrospectiveCorrectionEnabled = true
+    public let retrospectiveCorrectionEnabled = false
 
     public var notOpenBolusScreen: Bool { dosingEnabled && microbolusSettings.enabled && !microbolusSettings.shouldOpenBolusScreen }
 
