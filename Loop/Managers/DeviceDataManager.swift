@@ -12,6 +12,8 @@ import LoopKitUI
 import LoopCore
 import LoopTestingKit
 import UserNotifications
+import AudioToolbox
+import AVFoundation
 
 final class DeviceDataManager {
 
@@ -21,6 +23,10 @@ final class DeviceDataManager {
 
     /// Remember the launch date of the app for diagnostic reporting
     private let launchDate = Date()
+    
+    /// set initial lastAlarmDate to launchDate minus 24 hours
+     
+     var lastAlarmDate = Date() - .hours(24)
 
     /// Manages authentication for remote services
     let remoteDataManager = RemoteDataManager()
@@ -370,10 +376,65 @@ extension DeviceDataManager: PumpManagerDelegate {
             if let manager = self.cgmManager {
                 self.queue.async {
                     self.processCGMResult(manager, result: result)
+                    //check alarm and vibrate if below urgent low
+                    self.checkAlarms()
+                    //
                 }
             }
         }
     }
+    
+    
+    /////////////////////
+  func vibrate() {
+     DispatchQueue.main.async {
+         var i = 0
+         while i < 25 {
+             AudioServicesPlayAlertSound(SystemSoundID(kSystemSoundID_Vibrate))
+             sleep(1)
+             i+=1
+         }
+     }
+     }
+    
+     func checkAlarms() {
+  
+         let bgLowThreshold : Double = 60.0 //in mg/dL
+         let snoozeMinutes : Double = 30.0
+         let oldBGLimit : Double = 45.0 //in minutes
+         let lastestGlucose = loopManager.glucoseStore.latestGlucose
+         let deltaAlarmTime = Date().timeIntervalSince(lastAlarmDate)
+         //TODO add logic for what happens if no lastBG exists
+         if deltaAlarmTime < snoozeMinutes {
+             print("****Vibration Snooze****")
+             return
+         }
+         
+         if let lastBGDate = lastestGlucose?.startDate {
+             let deltaBGDate = Date().timeIntervalSince(lastBGDate)
+             if deltaBGDate > .minutes(oldBGLimit) {
+                 print("**************")
+                 print("VIBRATION ALARM OLD BG DATA")
+                 lastAlarmDate = Date()
+                 vibrate()
+                 return
+             }
+         }
+         
+         if let lastBGValue = lastestGlucose?.quantity.doubleValue(for: HKUnit.milligramsPerDeciliter) {
+             if lastBGValue < bgLowThreshold {
+                 print("**************")
+                 print("VIBRATION ALARM LOW BG")
+                 lastAlarmDate = Date()
+                 vibrate()
+                 return
+             }
+         }
+     print("*****Finished Alarms*****")
+     }
+    
+  
+    /////////////////////
 
     func pumpManagerMustProvideBLEHeartbeat(_ pumpManager: PumpManager) -> Bool {
         dispatchPrecondition(condition: .onQueue(queue))
